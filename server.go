@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// server is a struct for the server instance
 type server struct {
 	serverName string
 	router    *mux.Router
@@ -19,6 +20,7 @@ type server struct {
 	counterFile string
 }
 
+// logStruct is a struct for the log info structure
 type logStruct struct {
 	ServerStartedAt time.Time `json:"server_started"`
 	Requests int `json:"requests"`
@@ -27,12 +29,16 @@ type logStruct struct {
 	isDirty bool
 }
 
+// logRoute is a struct for logging the requests
+// to one route
 type logRoute struct {
 	RouteName string `json:"route"`
 	Requests int `json:"requests"`
 	LastRequestAt time.Time `json:"lastrequest"`
 }
 
+// NewServer is the factory function for returning a
+// server instance.
 func NewServer(serverName, counterFile string) *server {
 	logger := log.New(os.Stdout, "", log.LstdFlags)
 	s := &server{
@@ -47,6 +53,8 @@ func NewServer(serverName, counterFile string) *server {
 	return s
 }
 
+// InitLogStruct initializes the log info structure
+// with default values.
 func (s *server) InitLogStruct() {
 	s.logInfo = &logStruct{
 		ServerStartedAt: time.Now().UTC(),
@@ -56,6 +64,9 @@ func (s *server) InitLogStruct() {
 	s.readCounterFile()
 }
 
+// initLogWriter is a separate goroutine that writes
+// the server's log info structure to the JSON file
+// - only if there was a request since the last write.
 func (s *server) initLogWriter() {
 	go func() {
 		for true {
@@ -67,6 +78,8 @@ func (s *server) initLogWriter() {
 	}()
 }
 
+// logRequest is a middleware function for logging a request.
+// Logging is done using logRouteRequest under the hood.
 func (s *server) logRequest(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s.logRouteRequest(r.URL.Path)
@@ -77,6 +90,8 @@ func (s *server) logRequest(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// logRouteRequest logs a request for a route name to
+// the server's current log info structure.
 func (s *server) logRouteRequest(routeName string) {
 	found := false
 	for _, r := range s.logInfo.Routes {
@@ -99,6 +114,8 @@ func (s *server) logRouteRequest(routeName string) {
 	s.logInfo.isDirty = true
 }
 
+// handleNotFound is the handler function to respond
+// on requests for not defined routes.
 func (s *server) handleNotFound() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s.logRouteRequest("/notfound")
@@ -115,6 +132,9 @@ func (s *server) handleNotFound() http.HandlerFunc {
 	}
 }
 
+// readCounterFile reads the from the counterFile JSON file (if existing)
+// and populates the server's log info structure.
+// Gets executed at server start one (and only - obviously - if the file exists).
 func (s *server) readCounterFile() {
 	info, err := os.Stat(s.counterFile)
 	if os.IsNotExist(err) {
@@ -132,6 +152,8 @@ func (s *server) readCounterFile() {
 	return
 }
 
+// saveCounterFile saves the server's current log info structure to a JSON file.
+// The JSON filename are taken from the server instance (counterFile).
 func (s *server) saveCounterFile() {
 	s.logger.Printf("writing stats to counter file %s", s.counterFile)
 	file, _ := json.Marshal(s.logInfo)
